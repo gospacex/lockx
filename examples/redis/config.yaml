@@ -1,0 +1,11 @@
+lockx:
+  standalone:
+    - driver: redis
+      name: default
+      addr: localhost:6379
+      password: "redis123456"
+      namespace: "lockx-test"
+      ttl: 10s
+      retry:
+        max_attempts: 3
+        backoff: "exponential"

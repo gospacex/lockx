@@ -1,0 +1,34 @@
+# lockx - Distributed Lock Docker Compose
+# 复用 cachex 的 Redis 和 coordx 的 etcd
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ===== Redis（分布式锁主存储）=====
+  redis:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4
+    cpus: "0.5"
+    container_name: hubx-lock-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redis123456 --appendonly yes --loglevel notice
+    volumes:
+      - ./data/redis/data:/data
+      - ./data/redis/logs:/logs
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123456", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    mem_limit: 256m
+    restart: unless-stopped
+    logging: *default-logging
+
+networks:
+  default:
+    name: hubx-lockx-net
+    driver: bridge
