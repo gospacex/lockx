@@ -70,23 +70,29 @@ func WithNamespace(ns string) LockOption {
 const DefaultTTL = 30 * time.Second
 
 // Config 锁配置
+//
+// 为什么逐字段都带三套 tag：本结构体是 configx 三个通道（yaml 本地文件 /
+// json 远程配置中心 / mapstructure viper）的共同落点。缺 mapstructure tag 时
+// viper 只能按**字段名**匹配，`enable_trace` / `max_attempts` 这类蛇形键解码
+// 不进来 —— 不报错，只是永远取零值，表现为「明明写了开关却没生效」。
+// 与 config.go 里的 StandaloneConfig / ClusterConfig 保持同一套键名。
 type Config struct {
-	Driver      string
-	Name        string
-	Addr        string
-	Password    string
-	Namespace   string
-	TTL         time.Duration
-	Retry       RetryConfig
-	TLSEnabled  bool
-	EnableTrace bool
+	Driver      string        `yaml:"driver" json:"driver" mapstructure:"driver"`
+	Name        string        `yaml:"name" json:"name" mapstructure:"name"`
+	Addr        string        `yaml:"addr" json:"addr" mapstructure:"addr"`
+	Password    string        `yaml:"password" json:"password" mapstructure:"password"`
+	Namespace   string        `yaml:"namespace" json:"namespace" mapstructure:"namespace"`
+	TTL         time.Duration `yaml:"ttl" json:"ttl" mapstructure:"ttl"`
+	Retry       RetryConfig   `yaml:"retry" json:"retry" mapstructure:"retry"`
+	TLSEnabled  bool          `yaml:"tls_enabled" json:"tls_enabled" mapstructure:"tls_enabled"`
+	EnableTrace bool          `yaml:"enable_trace" json:"enable_trace" mapstructure:"enable_trace"`
 }
 
 // RetryConfig 重试配置
 type RetryConfig struct {
-	Enabled     bool
-	MaxAttempts int
-	BackoffMs   int
+	Enabled     bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
+	MaxAttempts int  `yaml:"max_attempts" json:"max_attempts" mapstructure:"max_attempts"`
+	BackoffMs   int  `yaml:"backoff_ms" json:"backoff_ms" mapstructure:"backoff_ms"`
 }
 
 // FillDefaults 填充默认值
