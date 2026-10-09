@@ -1,0 +1,36 @@
+# lockx/redis（分布式锁 Redis） - 独立开发环境
+# 用法：scripts/start.sh / scripts/verify.sh / scripts/stop.sh
+# 服务定义与 lockx/docker-compose.yml 中对应段一致，只改了容器名与网络名前缀，
+# 避免与根 compose（一次起全套）重名冲突。
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  redis:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4
+    cpus: "0.5"
+    container_name: hubx-lockx-redis
+    ports:
+      - "${HOST_PORT:-6379}:6379"
+    command: redis-server --requirepass redis123456 --appendonly yes --loglevel notice
+    volumes:
+      - ./data/redis/data:/data
+      - ./data/redis/logs:/logs
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123456", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    mem_limit: 256m
+    restart: unless-stopped
+    logging: *default-logging
+
+networks:
+  default:
+    name: hubx-lockx-redis-net
+    driver: bridge
