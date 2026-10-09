@@ -21,7 +21,7 @@ export HOST_PORT
 
 # 宿主端口预检：先探再起，避免"起了才发现端口被占"留下半起状态。
 # 本机常见占用来源：SDK 根 compose、hubx-micro-apps 六件套、dockers 通用中间件。
-for p in 6379; do
+for p in "${HOST_PORT}"; do
   if (exec 3<>"/dev/tcp/127.0.0.1/${p}") 2>/dev/null; then
     occ="$("$DOCKER" ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null | grep -E "[.:]${p}->" | awk -F'\t' '{{print $1}}' | head -1)"
     echo "ERROR: 宿主端口 ${p} 已被占用${occ:+（容器: $occ)}。"
@@ -38,7 +38,7 @@ echo "Waiting for Redis to be healthy (up to 120s)..."
 for i in $(seq 1 $(( 120 / 2 ))); do
   st="$("$DOCKER" inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' hubx-lockx-redis 2>/dev/null || echo missing)"
   if [ "$st" = "healthy" ]; then
-    echo "Redis is ready: 127.0.0.1:6379（密码 redis123456）"
+    echo "Redis is ready: 127.0.0.1:${HOST_PORT}（密码 redis123456）"
     exit 0
   fi
   sleep 2
