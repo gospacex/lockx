@@ -4,6 +4,7 @@ package lockx
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	_ "github.com/gospacex/logx/zap"
@@ -113,10 +114,21 @@ func (c *Config) FillDefaults() {
 
 // ===== Factory =====
 
+// creatorsMu 保护下面的 creators map。
+//
+// 背景：REVIEW-REPORT.md 第二优先级第 6 条点名 lockx 要给 factory map 加锁，
+// 但第八节已修复清单未覆盖。未加锁时并发注册 + 并发查找会触发 Go 运行时的
+// "fatal error: concurrent map read and map write" —— 不可 recover 的崩溃级
+// 故障（已由 interface_test.go 的 TestFactoryConcurrentAccess 在 -race 下
+// 复现，与 coordx 属同源缺陷）。
+var creatorsMu sync.RWMutex
+
 var creators = map[string]func(*Config) (Locker, error){}
 
 // RegisterCreator 注册锁驱动创建函数
 func RegisterCreator(name string, creator func(*Config) (Locker, error)) {
+	creatorsMu.Lock()
+	defer creatorsMu.Unlock()
 	creators[name] = creator
 }
 
@@ -127,7 +139,11 @@ func New(cfg *Config) (Locker, error) {
 	// 全局总闸 traceflag.SetEnabled(false) 可一键熔断 lockx。
 	cfg.EnableTrace = traceflag.Apply("lockx", cfg.EnableTrace)
 
+	// 只锁 map 查找，creator 放到锁外调用 —— 避免 creator 内部再注册
+	// 其它驱动时自死锁，也缩短持锁时间。
+	creatorsMu.RLock()
 	creator, ok := creators[cfg.Driver]
+	creatorsMu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("lockx: driver %q not registered; make sure to import the driver package", cfg.Driver)
 	}
